@@ -1,0 +1,110 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+    <title>多边形选点</title>
+    <link rel="stylesheet" href="http://cache.amap.com/lbs/static/main1119.css"/>
+    <script src="http://webapi.amap.com/maps?v=1.4.6&key=912cdc0b1a02ba72ae05bf041c2dc61c&plugin=AMap.PolyEditor"></script>
+    <script type="text/javascript" src="http://cache.amap.com/lbs/static/addToolbar.js"></script>
+    <style>
+   		#container{
+   			width: 100%;
+   			height: 100%;
+   			position: relative;
+   		}
+		.markerPoint{
+			width: 8px;
+			height: 8px;
+			background: green;
+			border:2px solid black;
+			border-radius: 50%;
+		}
+    </style>
+</head>
+<body>
+	<div id="container"></div>
+</body>
+	<script>
+		var page={
+			options:{
+				map:null,
+				polygon:null,
+				linePath:[new AMap.LngLat(116.395, 39.903),new AMap.LngLat(116.385, 39.903),new AMap.LngLat(116.385, 39.897),new AMap.LngLat(116.395, 39.897)],
+				polygonEditor:null,
+				marker:null
+			},
+			init:function(){
+				this.loadPage();
+				this.bindEvent();
+			},
+			loadPage:function(){
+				var _this=this;
+				this.options.map=new AMap.Map("container",{
+					resizeEnable:true,
+					zoom:14,
+					center: new AMap.LngLat(116.39, 39.9),
+				});
+				this.options.polygon=new AMap.Polygon({
+					map:this.options.map,
+					strokeWeight:2,
+					strokeColor:'green',
+					fillColor:'#999',
+					fillOpacity:0.8,
+					path:this.options.linePath,
+				});
+					//添加编辑插件
+				this.options.map.plugin(["AMap.PolyEditor"],function(){
+					_this.options.polygonEditor= new AMap.PolyEditor(_this.options.map, _this.options.polygon);
+					_this.options.polygonEditor.open();
+				});
+				//中心点
+				this.options.marker=new AMap.Marker({
+						position:_this.options.map.getCenter(),
+						map:_this.options.map,
+						content:'<div class="markerPoint"></div>',
+						offset:new AMap.Pixel(-5,-5),
+						draggable:true
+				});
+			},
+			bindEvent:function(){
+				var _this=this;
+				this.options.marker.on('dragstart', function(){
+					startPosition=_this.options.marker.getPosition();
+					startX=startPosition.lng;
+					startY=startPosition.lat;
+					polygonPathArr=_this.options.polygon.getPath();
+				});
+				this.options.marker.on('dragging',function(){
+					draggingPosition=_this.options.marker.getPosition();
+					draggingX=draggingPosition.lng;
+					draggingY=draggingPosition.lat;
+					valueX=draggingX-startX;//移动的坐标差值
+					valueY=draggingY-startY;
+					var x,y,lineArr=[];
+					for (var i = 0;i<polygonPathArr.length;i++) {
+						x=polygonPathArr[i].lng+valueX;
+						y=polygonPathArr[i].lat+valueY;
+						lineArr[i]=new AMap.LngLat(x,y);;
+					};
+					_this.options.polygon.setPath(lineArr);
+				});
+				AMap.event.addListener(this.options.polygon,'change',function(){
+					var arr=_this.options.polygon.getPath();
+					sumX=0,sumY=0;
+			        for(var i=0;i<arr.length;i++){
+			            sumX+=arr[i].lng;
+			            sumY+=arr[i].lat;
+			            averageX=sumX/arr.length;
+			            averageY=sumY/arr.length;
+			        };
+			        _this.options.marker.setPosition(new AMap.LngLat(averageX,averageY));
+				});
+			}
+		};
+		window.onload=function(){
+			page.init();
+		}
+	</script>
+</body>
+</html>

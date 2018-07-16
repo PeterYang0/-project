@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+	<meta charset="UTF-8">
+	<title>指点飞行</title>
+	<link rel="stylesheet" href="http://cache.amap.com/lbs/static/main1119.css"/>
+	<style>
+		#container{
+			width: 100%;
+			height: 100%;
+			position: relative;
+		}
+		#info_dis_time{
+			position: absolute;
+			left: 100px;
+			top: 50px;
+			width: 150px;
+			border-radius: 5px;
+			background: rgba(0,0,0,0.6);
+			padding-left: 20px;
+		}
+		#info_dis_time p{
+			color: #f0f0f0;
+		}
+		.btn{
+			position: absolute;
+			right: 200px;
+			top: 50px;
+			width: 80px;
+			height: 30px;
+			border-radius: 10px;
+			line-height: 30px;
+			text-align: center;
+			background: skyblue;
+			cursor: pointer;
+		}
+		#addMarker{
+			z-index: 1;
+			right: 120px;
+		}
+		#stop{
+			z-index: 0;
+			right: 120px;
+		}
+		#reset{
+			right: 20px;
+
+		}
+	</style>
+    <script src="http://webapi.amap.com/maps?v=1.4.6&key=ddaa272bc2bbb922bb850e654d43c1f8"></script>
+    <script type="text/javascript" src="http://cache.amap.com/lbs/static/addToolbar.js"></script>
+</head>
+<body>
+	<div id="container"></div>
+	<div id="addMarker" class="btn">添加航点</div>
+	<div id="stop" class="btn">停止添加</div>
+	<div id="reset" class="btn">重置</div>
+	</div>
+	<div id="info_dis_time">
+		<p>航行距离&nbsp;<span id="dis">0.0</span>&nbsp;m</p>
+		<p>飞行时间&nbsp;<span id="time">0.00</span>&nbsp;s</p>
+	</div>
+	
+	<script>
+		var page={
+			options:{
+				markerArr:[],
+				linerArr:[],
+				pathArr:[],
+				dis:0,
+				map:null,
+				polyline:null,
+				flag:false
+			},
+			init:function(){
+				this.loadPage();
+				this.bindEvent();
+			},
+			loadPage:function(){
+				var _this=this;
+				//添加地图
+				this.options.map=new AMap.Map("container",{
+					resizeEnable:true,
+					zoom:14
+				});
+				//添加折线
+				this.options.polyline=new AMap.Polyline({
+					map:_this.options.map,
+					strokeStyle:'dashed',
+					strokeDasharray:[15,10],
+					strokeColor:'red',
+				});
+			},
+			bindEvent:function(){
+				var _this=this;
+				var addMarker=document.getElementById('addMarker');
+				var stop=document.getElementById('stop');
+				var reset=document.getElementById('reset');
+				//添加航点
+				addMarker.onclick=function(e){
+					_this.options.flag=true;
+					addMarker.style.zIndex=0;
+					stop.style.zIndex=1;
+				};
+				//取消
+				stop.onclick=function(e){
+					//切换添加和取消
+					addMarker.style.zIndex=1;
+					stop.style.zIndex=0;
+					//关闭添加通道
+					_this.options.flag=false;
+				};
+				//重置
+				reset.onclick=function(){
+					_this.options.pathArr=[];
+					_this.setPolylinePath(_this.options.pathArr);
+					for(var i=0;i<_this.options.markerArr.length;i++){
+						_this.options.markerArr[i].setMap(null)
+					};
+					//清零
+					_this.disValue(0)
+					_this.timeValue(0)
+				}
+				//地图点击事件
+				_this.options.map.on('click',function(e){
+					_this.addMarker(e);
+					_this.setPolylinePath(_this.options.pathArr);
+					_this.disValue(AMap.GeometryUtil.distanceOfLine(_this.options.pathArr))
+					_this.timeValue(AMap.GeometryUtil.distanceOfLine(_this.options.pathArr))
+					console.log(_this.options.pathArr)
+				})
+			},
+			setPolylinePath:function(arr){//画折线
+				this.options.polyline.setPath(arr);
+			},
+			addMarker:function(e){//添加航点
+				var _this=this;
+				if (_this.options.flag) {
+					var marker=new AMap.Marker({
+						map:_this.options.map,
+						position:e.lnglat,
+					});
+					_this.options.markerArr.push(marker);
+					_this.options.pathArr.push(e.lnglat);
+				};
+			},
+			disValue:function(value){
+				var dis=document.getElementById('dis');
+				dis.innerHTML=value.toFixed(1);
+			},
+			timeValue:function(dis){
+				var time= document.getElementById('time');
+				time.innerHTML=(dis/5).toFixed(2)
+			}
+		};
+		window.onload=function(){
+			page.init();
+		}
+		
+	</script>	
+</body>
+</html>

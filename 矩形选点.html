@@ -1,0 +1,404 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+    <title>矩形</title>
+    <link rel="stylesheet" href="http://cache.amap.com/lbs/static/main1119.css"/>
+    <script src="http://webapi.amap.com/maps?v=1.4.6&key=912cdc0b1a02ba72ae05bf041c2dc61c"></script>
+    <script type="text/javascript" src="http://cache.amap.com/lbs/static/addToolbar.js"></script>
+    <style>
+    	#container{
+    		width: 100%;
+    		height: 100%;
+    		position: relative;
+    	}
+		.markerPoint{
+			width: 8px;
+			height: 8px;
+			background: green;
+			border:2px solid black;
+			border-radius: 50%;
+		}
+		#btn{
+			position: absolute;
+			right: 100px;
+			top: 50px;
+			width: 50px;
+			height: 30px;
+			line-height: 30px;
+			background: #f0f0f0;
+			font-size: 14px;
+			text-align: center;
+			border-radius: 10px;
+			cursor: pointer;
+		}
+	</style>
+</head>
+<body>
+	<div id="container"></div>
+	<div id="btn">重置</div>
+
+	<script>
+	var map=new AMap.Map("container",{
+		resizeEnable:true,
+		zoom:14,
+		center: new AMap.LngLat(116.39, 39.9),
+	});
+	// 起始中心点
+	var marker=new AMap.Marker({
+		position:map.getCenter(),
+		map:map,
+		content:'<div class="markerPoint"></div>',
+		offset:new AMap.Pixel(-5,-5),
+		draggable:true,
+	});
+	var moveDeg=0;
+	//绘制默认多边形
+	var linePath=[new AMap.LngLat(116.385, 39.897),new AMap.LngLat(116.395, 39.897),new AMap.LngLat(116.395, 39.903),new AMap.LngLat(116.385, 39.903)];
+	//计算右marker坐标//点到直线的垂点
+	function rightMarker(p1,p2){
+		var dis=AMap.GeometryUtil.closestOnSegment(marker.getPosition(), p1,p2);
+		dis[0]=dis[0]+0.6*(dis[0]-marker.getPosition().lng);
+		dis[1]=dis[1]+0.6*(dis[1]-marker.getPosition().lat);
+		return dis
+	};
+	function setMarker(){
+		for(var i=0;i<rectPoint.length;i++){
+			markerPoint[i].setPosition(rectPoint[i]);
+		}
+	}
+	// 右marker
+	var markerR=new AMap.Marker({
+		position:new AMap.LngLat(rightMarker(new AMap.LngLat(116.395, 39.897),new AMap.LngLat(116.395, 39.903))[0],rightMarker(new AMap.LngLat(116.395, 39.897),new AMap.LngLat(116.395, 39.903))[1]),
+		map:map,
+		content:'<div class="markerPoint"></div>',
+		offset:new AMap.Pixel(-5,-5),
+		draggable:true
+	});
+	//绘制多边形
+	var polygon=new AMap.Polygon({
+		path:linePath,
+		map:map,
+		strokeWeight:2,
+		strokeColor:'green',
+		fillColor:'#999',
+		fillOpacity:0.4,
+	});
+	//矩形顶点坐标
+	var rectPoint=polygon.getPath();
+	//顶点marker的集合
+	var markerPoint=[];
+	//绘制顶点marker
+	for(var i=0;i<rectPoint.length;i++){
+		markerPoint[i]=new AMap.Marker({
+			position:rectPoint[i],
+			map:map,
+			content:'<div class="markerPoint">'+i+'</div>',
+			offset:new AMap.Pixel(-5,-5),
+			draggable:true
+		})
+	};
+	//marker的拖动事件
+	var lineArr=rectPoint;
+	marker.on('dragstart', function(){
+		startPosition=marker.getPosition();
+		startX=startPosition.lng;
+		startY=startPosition.lat;
+		rectPoint=polygon.getPath();
+	});
+	marker.on('dragging',function(){
+		lineArr=[];
+		draggingPosition=marker.getPosition();
+		draggingX=draggingPosition.lng;
+		draggingY=draggingPosition.lat;
+		valueX=draggingX-startX;//移动的坐标差值
+		valueY=draggingY-startY;
+		var x,y;
+		for (var i = 0;i<rectPoint.length;i++) {
+			x=rectPoint[i].lng+valueX;
+			y=rectPoint[i].lat+valueY;
+			lineArr[i]=new AMap.LngLat(x,y);
+		};
+		polygon.setPath(lineArr);
+		for(var i=0;i<lineArr.length;i++){
+			markerPoint[i].setPosition(lineArr[i])
+		};
+		markerR.setPosition(new AMap.LngLat(rightMarker(lineArr[1],lineArr[2])[0],rightMarker(lineArr[1],lineArr[2])[1]));
+	});
+	marker.on('dragend', function(){
+		rectPoint=lineArr;
+	});
+	//顶点的拖动事件
+	var isDragging=false;
+    var averageX,averageY,sumX=0,sumY=0;
+	//第一个点
+	markerPoint[0].on('mousedown',function(e){
+		isDragging=true;
+	});
+	markerPoint[0].on('mousemove',function(e){
+		if (isDragging) {
+			rectPoint=polygon.getPath();
+			map.setStatus({dragEnable:false})
+			if (moveDeg==0) {//没有旋转
+				rectPoint[0]=e.lnglat;
+				rectPoint[1]=new AMap.LngLat(rectPoint[1].lng,e.lnglat.lat);
+				rectPoint[2]=rectPoint[2];
+				rectPoint[3]=new AMap.LngLat(e.lnglat.lng,rectPoint[3].lat);
+			}else{//旋转过后
+				leftBottom=new AMap.LngLat(rectPoint[1].lng+(rectPoint[1].lng-rectPoint[2].lng),rectPoint[1].lat+(rectPoint[1].lat-rectPoint[2].lat));
+				leftTop=new AMap.LngLat(rectPoint[3].lng+(rectPoint[3].lng-rectPoint[2].lng),rectPoint[3].lat+(rectPoint[3].lat-rectPoint[2].lat));
+				rectPoint[0]=e.lnglat;
+				rectPoint[1]=new AMap.LngLat(AMap.GeometryUtil.closestOnSegment(rectPoint[0], leftBottom ,rectPoint[2])[0],AMap.GeometryUtil.closestOnSegment(rectPoint[0], leftBottom ,rectPoint[2])[1]);
+				rectPoint[2]=rectPoint[2];
+				rectPoint[3]=new AMap.LngLat(AMap.GeometryUtil.closestOnSegment(rectPoint[0], rectPoint[2] ,leftTop)[0],AMap.GeometryUtil.closestOnSegment(rectPoint[0], rectPoint[2] ,leftTop)[1]);
+			};
+			// onceArr=rectPoint;
+			// if (AMap.GeometryUtil.distance(rectPoint[0],rectPoint[1])<=20 ){
+			// 	if (onceArr) {
+			// 		rectPoint[0]=new AMap.LngLat(rectPoint[2].lng-0.0002,rectPoint[0].lat);
+			// 		isDragging=false;
+			// 	};
+			// 	onceArr=null;
+			// };
+			// if(distance(rectPoint[0],rectPoint[3]) <20){
+			// 	rectPoint[0]=new AMap.LngLat(rectPoint[0].lng,rectPoint[2].lat-0.0002);
+			// 	isDragging=false;
+			// };
+			//设置中心点setDraggable
+            sumX=0,sumY=0;
+            for(var i=0;i<rectPoint.length;i++){
+                sumX+=rectPoint[i].lng;
+                sumY+=rectPoint[i].lat;
+                averageX=sumX/rectPoint.length;
+                averageY=sumY/rectPoint.length;
+            };
+            marker.setPosition(new AMap.LngLat(averageX,averageY));
+            markerR.setPosition(new AMap.LngLat(rightMarker(rectPoint[1],rectPoint[2])[0],rightMarker(rectPoint[1],rectPoint[2])[1]));
+            //画
+			polygon.setPath(rectPoint);
+			setMarker();
+		};
+	});
+	markerPoint[0].on('mouseup',function(){
+		isDragging=false;
+		markerPoint[0].setPosition(rectPoint[0])
+		map.setStatus({dragEnable:true})
+	});
+	//第二个点
+	markerPoint[1].on('mousedown',function(e){
+		isDragging=true;
+	});
+	markerPoint[1].on('mousemove',function(e){
+		if (isDragging) {
+			rectPoint=polygon.getPath();
+			map.setStatus({dragEnable:false})
+			if (moveDeg==0) {
+				rectPoint[0]=new AMap.LngLat(rectPoint[0].lng,e.lnglat.lat);
+				rectPoint[1]=e.lnglat;
+				rectPoint[2]=new AMap.LngLat(e.lnglat.lng,rectPoint[2].lat);
+				rectPoint[3]=rectPoint[3];	
+			}else{
+				rightTop=new AMap.LngLat(rectPoint[2].lng+(rectPoint[2].lng-rectPoint[3].lng),rectPoint[2].lat+(rectPoint[2].lat-rectPoint[3].lat));
+				leftBottom=new AMap.LngLat(rectPoint[0].lng+(rectPoint[0].lng-rectPoint[3].lng),rectPoint[0].lat+(rectPoint[0].lat-rectPoint[3].lat));
+				rectPoint[0]=new AMap.LngLat(AMap.GeometryUtil.closestOnSegment(rectPoint[1], leftBottom ,rectPoint[3])[0],AMap.GeometryUtil.closestOnSegment(rectPoint[1], leftBottom ,rectPoint[3])[1]);
+				rectPoint[1]=e.lnglat;
+				rectPoint[2]=new AMap.LngLat(AMap.GeometryUtil.closestOnSegment(rectPoint[1], rectPoint[3] ,rightTop)[0],AMap.GeometryUtil.closestOnSegment(rectPoint[1], rectPoint[3] ,rightTop)[1]);
+				rectPoint[3]=rectPoint[3];
+			};
+			//设置范围
+			// if (rectPoint[1].lng-rectPoint[3].lng<=0.0002){
+			// 	rectPoint[1]=new AMap.LngLat(rectPoint[3].lng+0.0002,rectPoint[1].lat);
+			// 	isDragging=false;
+			// };
+			// if(rectPoint[3].lat-rectPoint[1].lat<=0.0002){
+			// 	rectPoint[1]=new AMap.LngLat(rectPoint[1].lng,rectPoint[3].lat-0.0002);
+			// 	isDragging=false;
+			// };
+			//设置中心点
+            sumX=0,sumY=0;
+            for(var i=0;i<rectPoint.length;i++){
+                sumX+=rectPoint[i].lng;
+                sumY+=rectPoint[i].lat;
+                averageX=sumX/rectPoint.length;
+                averageY=sumY/rectPoint.length;
+            };
+            marker.setPosition(new AMap.LngLat(averageX,averageY));
+            markerR.setPosition(new AMap.LngLat(rightMarker(rectPoint[1],rectPoint[2])[0],rightMarker(rectPoint[1],rectPoint[2])[1]));
+            //画
+			polygon.setPath(rectPoint);
+			setMarker()
+		};
+	});
+	markerPoint[1].on('mouseup',function(){
+		isDragging=false;
+		markerPoint[1].setPosition(rectPoint[1]);
+		map.setStatus({dragEnable:true})
+	});
+	//第三个点
+	markerPoint[2].on('mousedown',function(e){
+		isDragging=true;
+	});
+	markerPoint[2].on('mousemove',function(e){
+		if (isDragging) {			
+			rectPoint=polygon.getPath();
+			map.setStatus({dragEnable:false})
+			if (moveDeg==0) {
+				rectPoint[0]=rectPoint[0];
+				rectPoint[1]=new AMap.LngLat(e.lnglat.lng,rectPoint[1].lat);
+				rectPoint[2]=e.lnglat;
+				rectPoint[3]=new AMap.LngLat(rectPoint[3].lng,e.lnglat.lat);
+			}else{
+				leftTop=new AMap.LngLat(rectPoint[3].lng+(rectPoint[3].lng-rectPoint[0].lng),rectPoint[3].lat+(rectPoint[3].lat-rectPoint[0].lat));
+				rightBottom=new AMap.LngLat(rectPoint[1].lng+(rectPoint[1].lng-rectPoint[0].lng),rectPoint[1].lat+(rectPoint[1].lat-rectPoint[0].lat));
+				rectPoint[0]=rectPoint[0];
+				rectPoint[1]=new AMap.LngLat(AMap.GeometryUtil.closestOnSegment(rectPoint[2], rectPoint[0] ,rightBottom)[0],AMap.GeometryUtil.closestOnSegment(rectPoint[2], rectPoint[0] ,rightBottom)[1]);
+				rectPoint[2]=e.lnglat;
+				rectPoint[3]=new AMap.LngLat(AMap.GeometryUtil.closestOnSegment(rectPoint[2], leftTop ,rectPoint[0])[0],AMap.GeometryUtil.closestOnSegment(rectPoint[2], leftTop ,rectPoint[0])[1]);
+			};
+			//设置范围
+			// if (rectPoint[2].lng-rectPoint[0].lng<=0.0002){
+			// 	rectPoint[2]=new AMap.LngLat(rectPoint[0].lng+0.0002,rectPoint[2].lat);
+			// 	isDragging=false;
+			// };
+			// if(rectPoint[2].lat-rectPoint[0].lat<=0.0002){
+			// 	rectPoint[2]=new AMap.LngLat(rectPoint[2].lng,rectPoint[0].lat+0.0002);
+			// 	isDragging=false;
+			// };
+			//设置中心点
+            sumX=0,sumY=0;
+            for(var i=0;i<rectPoint.length;i++){
+                sumX+=rectPoint[i].lng;
+                sumY+=rectPoint[i].lat;
+                averageX=sumX/rectPoint.length;
+                averageY=sumY/rectPoint.length;
+            };
+            marker.setPosition(new AMap.LngLat(averageX,averageY));
+            markerR.setPosition(new AMap.LngLat(rightMarker(rectPoint[1],rectPoint[2])[0],rightMarker(rectPoint[1],rectPoint[2])[1]));
+            //画
+			polygon.setPath(rectPoint);
+			setMarker();
+		};
+	});
+	markerPoint[2].on('mouseup',function(){
+		isDragging=false;
+		markerPoint[2].setPosition(rectPoint[2]);
+		map.setStatus({dragEnable:true})
+	});
+	//第四个点
+	markerPoint[3].on('mousedown',function(e){
+		isDragging=true;
+		markerPoint[3].setDraggable(true);
+	});
+	markerPoint[3].on('mousemove',function(e){
+		if (isDragging) {
+			rectPoint=polygon.getPath();
+			map.setStatus({dragEnable:false});
+			if (moveDeg==0) {
+				rectPoint[0]=new AMap.LngLat(e.lnglat.lng,rectPoint[0].lat);
+				rectPoint[1]=rectPoint[1];
+				rectPoint[2]=new AMap.LngLat(rectPoint[2].lng,e.lnglat.lat);
+				rectPoint[3]=e.lnglat;
+			}else{
+				leftBottom=new AMap.LngLat(rectPoint[0].lng+(rectPoint[0].lng-rectPoint[1].lng),rectPoint[0].lat+(rectPoint[0].lat-rectPoint[1].lat));
+				rightTop=new AMap.LngLat(rectPoint[2].lng+(rectPoint[2].lng-rectPoint[1].lng),rectPoint[2].lat+(rectPoint[2].lat-rectPoint[1].lat));
+				rectPoint[0]=new AMap.LngLat(AMap.GeometryUtil.closestOnSegment(rectPoint[3], rectPoint[1] ,leftBottom)[0],AMap.GeometryUtil.closestOnSegment(rectPoint[3], rectPoint[1] ,leftBottom)[1]);
+				rectPoint[1]=rectPoint[1];
+				rectPoint[2]=new AMap.LngLat(AMap.GeometryUtil.closestOnSegment(rectPoint[3], rightTop ,rectPoint[1])[0],AMap.GeometryUtil.closestOnSegment(rectPoint[3], rightTop ,rectPoint[1])[1]);
+				rectPoint[3]=e.lnglat;
+			};
+			//设置范围
+			// if (rectPoint[1].lng-rectPoint[3].lng<=0.0002){
+			// 	rectPoint[3]=new AMap.LngLat(rectPoint[1].lng-0.0002,rectPoint[3].lat);
+			// 	isDragging=false;
+			// };
+			// if(rectPoint[3].lat-rectPoint[1].lat<=0.0002){
+			// 	rectPoint[3]=new AMap.LngLat(rectPoint[3].lng,rectPoint[1].lat+0.0002);
+			// 	isDragging=false;
+			// };
+			//设置中心点
+            sumX=0,sumY=0;
+            for(var i=0;i<rectPoint.length;i++){
+                sumX+=rectPoint[i].lng;
+                sumY+=rectPoint[i].lat;
+                averageX=sumX/rectPoint.length;
+                averageY=sumY/rectPoint.length;
+            };
+            marker.setPosition(new AMap.LngLat(averageX,averageY));
+            markerR.setPosition(new AMap.LngLat(rightMarker(rectPoint[1],rectPoint[2])[0],rightMarker(rectPoint[1],rectPoint[2])[1]));
+            //画
+			polygon.setPath(rectPoint);
+			setMarker();
+		};
+	});
+	markerPoint[3].on('mouseup',function(){
+		isDragging=false;
+		markerPoint[3].setPosition(rectPoint[3]);
+		map.setStatus({dragEnable:true})
+	});
+	//markerR的拖动事件
+	var center;
+	var R;
+	var pixelrectPoint=[];//像素点坐标
+	var degrectPoint=[];//坐标点对应的角度
+	markerR.on('dragstart',function(e){
+		center=lnglatToPixel(marker.getPosition());
+		startX=lnglatToPixel(e.lnglat).x-center.x;
+		startY=lnglatToPixel(e.lnglat).y-center.y;
+		startDeg=Math.atan2(startY,startX);
+		rectPoint=polygon.getPath();
+		for(var i=0;i<rectPoint.length;i++){
+			pixelrectPoint[i]=lnglatToPixel(rectPoint[i]);
+			degrectPoint[i]=Math.atan2(pixelrectPoint[i].y-center.y,pixelrectPoint[i].x-center.x);
+		};
+		R=Math.sqrt(Math.pow(pixelrectPoint[0].x-center.x,2)+Math.pow(pixelrectPoint[0].y-center.y,2));
+	});
+	markerR.on('dragging',function(e){
+		//旋转后的角度集合
+		resultPiel=[];
+		resultLnglat=[];
+		moveX=lnglatToPixel(e.lnglat).x-center.x;
+		moveY=lnglatToPixel(e.lnglat).y-center.y;
+		moveDeg=Math.atan2(moveY,moveX)-startDeg;
+		for(var i=0;i<degrectPoint.length;i++){
+			resultPiel[i]=[Math.cos(degrectPoint[i]+moveDeg)*R+center.x,Math.sin(degrectPoint[i]+moveDeg)*R+center.y];
+			resultLnglat[i]=PixelTolnglat(new AMap.Pixel(resultPiel[i][0],resultPiel[i][1]))
+		};
+		// console.log(resultLnglat);
+		polygon.setPath(resultLnglat);
+		for(var i=0;i<resultLnglat.length;i++){
+			markerPoint[i].setPosition(resultLnglat[i])
+		};
+		rectPoint=resultLnglat;
+
+	});
+	markerR.on('dragend',function(){
+		markerR.setPosition(new AMap.LngLat(rightMarker(rectPoint[1],rectPoint[2])[0],rightMarker(rectPoint[1],rectPoint[2])[1]));
+	});
+	//重置
+	document.getElementById('btn').onclick=function(){
+		rectPoint=[new AMap.LngLat(116.385, 39.897),new AMap.LngLat(116.395, 39.897),new AMap.LngLat(116.395, 39.903),new AMap.LngLat(116.385, 39.903)];
+		map.setZoom(14);
+		map.setCenter(new AMap.LngLat(116.39, 39.9))
+		marker.setPosition(new AMap.LngLat(116.39, 39.9));
+        markerR.setPosition(new AMap.LngLat(rightMarker(rectPoint[1],rectPoint[2])[0],rightMarker(rectPoint[1],rectPoint[2])[1]));
+		polygon.setPath(rectPoint);
+		for(var i=0;i<rectPoint.length;i++){
+			markerPoint[i].setPosition(rectPoint[i]);
+		};
+	}
+    //地理坐标转像素坐标
+    function lnglatToPixel(lnglat){
+        var pixel=map.lnglatTocontainer(lnglat);
+        return pixel
+    };
+    //像素转地理坐标
+    function PixelTolnglat(pixel){
+        var lnglat=map.containerToLngLat(pixel);
+        return lnglat
+    };
+	</script>
+</body>
+</body>
+</html>
